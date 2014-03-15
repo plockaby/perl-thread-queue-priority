@@ -1,8 +1,11 @@
+.push
+.push/*
 .*.swp
 blib/
 .build/
 _build/
 cover_db/
+prove_db/
 inc/
 Build
 !Build/

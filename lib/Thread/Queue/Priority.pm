@@ -6,9 +6,11 @@ use warnings;
 our $VERSION = '1.0.0';
 $VERSION = eval $VERSION;
 
-use Carp;
 use threads::shared 1.21;
 use Scalar::Util qw(looks_like_number);
+
+# Carp errors from threads::shared calls should complain about caller
+our @CARP_NOT = ("threads::shared");
 
 sub new {
     my $class = shift;
@@ -27,10 +29,13 @@ sub enqueue {
     lock(%{$self});
 
     # if the queue has "ended" then we can't enqueue anything
-    croak("'enqueue' method called on queue that has been 'end'ed") if $self->{'_ended'};
+    if ($self->{'_ended'}) {
+        require Carp;
+        Carp::croak("'enqueue' method called on queue that has been 'end'ed");
+    }
 
     my $queue = $self->{'_queue'};
-    $priority = defined($priority) ? _validate_priority($priority) : 50;
+    $priority = defined($priority) ? $self->_validate_priority($priority) : 50;
 
     # if the priority group hasn't been created then create it
     my @group :shared = ();
@@ -71,7 +76,7 @@ sub dequeue {
     lock(%{$self});
 
     my $queue = $self->{'_queue'};
-    my $count = scalar(@_) ? _validate_count(shift(@_)) : 1;
+    my $count = scalar(@_) ? $self->_validate_count(shift(@_)) : 1;
 
     # wait for requisite number of items
     cond_wait(%{$self}) while (($self->{'_count'} < $count) && ! $self->{'_ended'});
@@ -110,7 +115,7 @@ sub dequeue_nb {
     lock(%{$self});
 
     my $queue = $self->{'_queue'};
-    my $count = scalar(@_) ? _validate_count(shift(@_)) : 1;
+    my $count = scalar(@_) ? $self->_validate_count(shift(@_)) : 1;
 
     # return single item
     if ($count == 1) {
@@ -143,8 +148,8 @@ sub dequeue_timed {
     lock(%{$self});
 
     my $queue = $self->{'_queue'};
-    my $timeout = scalar(@_) ? _validate_timeout(shift(@_)) : -1;
-    my $count = scalar(@_) ? _validate_count(shift(@_)) : 1;
+    my $timeout = scalar(@_) ? $self->_validate_timeout(shift(@_)) : -1;
+    my $count = scalar(@_) ? $self->_validate_count(shift(@_)) : 1;
 
     # timeout may be relative or absolute
     # convert to an absolute time for use with cond_timedwait()
@@ -167,7 +172,7 @@ sub peek {
     lock(%{$self});
 
     my $queue = $self->{'_queue'};
-    my $index = scalar(@_) ? _validate_index(shift(@_)) : 0;
+    my $index = scalar(@_) ? $self->_validate_index(shift(@_)) : 0;
 
     for my $priority (sort keys %{$queue}) {
         my $size = scalar(@{$queue->{$priority}});
@@ -185,13 +190,15 @@ sub peek {
 
 # check value of the requested index
 sub _validate_index {
-    my $index = shift;
+    my ($self, $index) = @_;
 
     if (!defined($index) || !looks_like_number($index) || (int($index) != $index)) {
+        require Carp;
         my ($method) = (caller(1))[3];
-        $method =~ s/^Thread::Queue::Priority:://;
+        my $class_name = ref($self);
+        $method =~ s/$class_name:://;
         $index = 'undef' unless defined($index);
-        croak("Invalid 'index' argument (${index}) to '${method}' method");
+        Carp::croak("Invalid 'index' argument (${index}) to '${method}' method");
     }
 
     return $index;
@@ -199,13 +206,15 @@ sub _validate_index {
 
 # check value of the requested count
 sub _validate_count {
-    my $count = shift;
+    my ($self, $count) = @_;
 
     if (!defined($count) || !looks_like_number($count) || (int($count) != $count) || ($count < 1)) {
+        require Carp;
         my ($method) = (caller(1))[3];
-        $method =~ s/^Thread::Queue::Priority:://;
+        my $class_name = ref($self);
+        $method =~ s/$class_name:://;
         $count = 'undef' unless defined($count);
-        croak("Invalid 'count' argument (${count}) to '${method}' method");
+        Carp::croak("Invalid 'count' argument (${count}) to '${method}' method");
     }
 
     return $count;
@@ -213,13 +222,15 @@ sub _validate_count {
 
 # check value of the requested timeout
 sub _validate_timeout {
-    my $timeout = shift;
+    my ($self, $timeout) = @_;
 
     if (!defined($timeout) || !looks_like_number($timeout)) {
+        require Carp;
         my ($method) = (caller(1))[3];
-        $method =~ s/^Thread::Queue::Priority:://;
+        my $class_name = ref($self);
+        $method =~ s/$class_name:://;
         $timeout = 'undef' unless defined($timeout);
-        croak("Invalid 'timeout' argument (${timeout}) to '${method}' method");
+        Carp::croak("Invalid 'timeout' argument (${timeout}) to '${method}' method");
     }
 
     return $timeout;
@@ -227,13 +238,15 @@ sub _validate_timeout {
 
 # check value of the requested timeout
 sub _validate_priority {
-    my $priority = shift;
+    my ($self, $priority) = @_;
 
     if (!defined($priority) || !looks_like_number($priority) || (int($priority) != $priority) || ($priority < 0)) {
+        require Carp;
         my ($method) = (caller(1))[3];
-        $method =~ s/^Thread::Queue::Priority:://;
+        my $class_name = ref($self);
+        $method =~ s/$class_name:://;
         $priority = 'undef' unless defined($priority);
-        croak("Invalid 'priority' argument (${priority}) to '${method}' method");
+        Carp::croak("Invalid 'priority' argument (${priority}) to '${method}' method");
     }
 
     return $priority;
@@ -257,7 +270,7 @@ This document describes Thread::Queue::Priority version 1.0.0
     use threads;
     use Thread::Queue::Priority;
 
-    # create a new empty queue with no max limit
+    # create a new empty queue
     my $q = Thread::Queue::Priority->new();
 
     # add a new element with default priority 50
@@ -272,7 +285,95 @@ This document describes Thread::Queue::Priority version 1.0.0
 =head1 DESCRIPTION
 
 This is a variation on L<Thread::Queue> that will dequeue items based on their
+priority. This module is NOT a drop-in replacement for L<Thread::Queue> as it
+does not implement all of its methods as they don't all make sense. However,
+for the methods implemented and described below, consider the functionality to
+be the same as that of L<Thread::Queue>.
+
+=head1 QUEUE CREATION
+
+=over
+
+=item ->new()
+
+Creates a new empty queue. A list cannot be created with items already on it.
+
+=item ->enqueue(ITEM, PRIORITY)
+
+Adds an item onto the queue with the givern priority. Only one item may be
+added at a time. If no priority is given, it is given a default value of 50.
+There are no constraints on the priority number with the exception that it must
+be greater than zero and it must be a number. The smaller the number, the
+greater the priority.
+
+=item ->dequeue()
+
+=item ->dequeue(COUNT)
+
+Removes and returns the requested number of items (default is 1) in priority
+order where smaller numbers indicate greater priority. If the queue contains
+fewer than the requested number of items, then the thread will be blocked until
+the requisite number of items are available (i.e., until other threads
+<enqueue> more items).
+
+=item ->dequeue_nb()
+
+=item ->dequeue_nb(COUNT)
+
+This functions the same as C<dequeue> but it will not block if the queue is
+empty or the queue does not have COUNT items. Instead it will return whatever
+is on the queue up to COUNT, or C<undef> if the queue is empty. Again, items
+will come off the queue in priority order where smaller numbers have a higher
 priority.
+
+=item ->dequeue_timed(TIMEOUT)
+
+=item ->dequeue_timed(TIMEOUT, COUNT)
+
+This functions the same as C<dequeue> but will only block for the length of the
+given timeout. If the timeout is reached, it returns whatever items there are
+on the queue, or C<undef> if the queue is empty. Again, items will come off the
+queue in priority order where smaller numbers have a higher priority.
+
+The timeout may be a number of seconds relative to the current time (e.g., 5
+seconds from when the call is made), or may be an absolute timeout in I<epoch>
+seconds the same as would be used with
+L<cond_timedwait()|threads::shared/"cond_timedwait VARIABLE, ABS_TIMEOUT">.
+Fractional seconds (e.g., 2.5 seconds) are also supported (to the extent of
+the underlying implementation).
+
+If C<TIMEOUT> is missing, C<undef>, or less than or equal to 0, then this call
+behaves the same as C<dequeue_nb>.
+
+=item ->pending()
+
+Returns the number of items still in the queue.  Returns C<undef> if the queue
+has been ended (see below), and there are no more items in the queue.
+
+=item ->end()
+
+Declares that no more items will be added to the queue.
+
+All threads blocking on C<dequeue()> calls will be unblocked with any
+remaining items in the queue and/or C<undef> being returned.  Any subsequent
+calls to C<dequeue()> will behave like C<dequeue_nb()>.
+
+Once ended, no more items may be placed in the queue.
+
+=item ->peek(INDEX)
+
+Returns n item from the queue without dequeuing anything.  Defaults to the
+the head of queue (at index position 0) if no index is specified.  Negative
+index values are supported as with L<arrays|perldata/"Subscripts"> (i.e., -1
+is the end of the queue, -2 is next to last, and so on).
+
+If no items exists at the specified index (i.e., the queue is empty, or the
+index is beyond the number of items on the queue), then C<undef> is returned.
+
+Remember, the returned item is not removed from the queue, so manipulating a
+C<peek>ed at reference affects the item on the queue.
+
+=back
 
 =head1 SEE ALSO
 
@@ -284,8 +385,8 @@ Paul Lockaby S<E<lt>plockaby AT cpan DOT orgE<gt>>
 
 =head1 CREDIT
 
-Large huge portions of this module are directly from L<Thread::Queue> which is
-maintained by Jerry D. Hedden.
+Significant portions of this module are directly from L<Thread::Queue> which is
+maintained by Jerry D. Hedden, <jdhedden AT cpan DOT org>.
 
 =head1 LICENSE
 

@@ -3,7 +3,7 @@ package Thread::Queue::Priority;
 use strict;
 use warnings;
 
-our $VERSION = '1.0.0';
+our $VERSION = '1.0.1';
 $VERSION = eval $VERSION;
 
 use threads::shared 1.21;

@@ -260,7 +260,7 @@ Thread::Queue::Priority - Thread-safe queues with priorities
 
 =head1 VERSION
 
-This document describes Thread::Queue::Priority version 1.0.0
+This document describes Thread::Queue::Priority version 1.0.1
 
 =head1 SYNOPSIS
 

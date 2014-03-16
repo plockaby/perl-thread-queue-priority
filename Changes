@@ -1,5 +1,8 @@
 Revision history for Perl extension Thread::Queue::Priority.
 
-1.0.0 Mon Mar  3 05:04:18 UTC 2014
+1.0.0 Sat Mar  15 02:35:42 UTC 2014
 	- Initial release.
+
+1.0.1 Sun Mar  16 05:41:42 UTC 2014
+	- Fix warnings in tests
 

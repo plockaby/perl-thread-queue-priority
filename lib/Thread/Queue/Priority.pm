@@ -196,7 +196,7 @@ sub _validate_index {
         require Carp;
         my ($method) = (caller(1))[3];
         my $class_name = ref($self);
-        $method =~ s/$class_name::// if defined($class_name);
+        $method =~ s/${class_name}:://;
         $index = 'undef' unless defined($index);
         Carp::croak("Invalid 'index' argument (${index}) to '${method}' method");
     }
@@ -212,7 +212,7 @@ sub _validate_count {
         require Carp;
         my ($method) = (caller(1))[3];
         my $class_name = ref($self);
-        $method =~ s/$class_name::// if defined($class_name);
+        $method =~ s/${class_name}:://;
         $count = 'undef' unless defined($count);
         Carp::croak("Invalid 'count' argument (${count}) to '${method}' method");
     }
@@ -228,7 +228,7 @@ sub _validate_timeout {
         require Carp;
         my ($method) = (caller(1))[3];
         my $class_name = ref($self);
-        $method =~ s/$class_name::// if defined($class_name);
+        $method =~ s/${class_name}:://;
         $timeout = 'undef' unless defined($timeout);
         Carp::croak("Invalid 'timeout' argument (${timeout}) to '${method}' method");
     }
@@ -244,7 +244,7 @@ sub _validate_priority {
         require Carp;
         my ($method) = (caller(1))[3];
         my $class_name = ref($self);
-        $method =~ s/$class_name:://;
+        $method =~ s/${class_name}:://;
         $priority = 'undef' unless defined($priority);
         Carp::croak("Invalid 'priority' argument (${priority}) to '${method}' method");
     }

@@ -3,7 +3,7 @@ package Thread::Queue::Priority;
 use strict;
 use warnings;
 
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 $VERSION = eval $VERSION;
 
 use threads::shared 1.21;
@@ -260,7 +260,7 @@ Thread::Queue::Priority - Thread-safe queues with priorities
 
 =head1 VERSION
 
-This document describes Thread::Queue::Priority version 1.02
+This document describes Thread::Queue::Priority version 1.03
 
 =head1 SYNOPSIS
 

@@ -21,4 +21,4 @@ requires:
   Scalar::Util: 1.1
   Test::More: 0.5
   threads::shared: 1.21
-version: v1.02
+version: v1.03
